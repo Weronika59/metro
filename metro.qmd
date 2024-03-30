@@ -18,6 +18,141 @@ editor_options:
 
 ```{r}
 library(tidyverse)
+library(dplyr)
+library(kableExtra)
+library(corrplot)
+library(keras)
+```
+
+```{r}
 dane <- read.csv(file = "C:\\Users\\wnadw\\Desktop\\Pliki studia\\Rok 4\\II stopień\\semestr 1\\Zaawansowane metody uczenia maszynowego\\projekt\\dane UCI\\timeseries\\metro\\MetroPT3(AirCompressor).csv", sep = ",", header = T)
-head(dane)
+```
+
+## Cel badania
+
+(Streszczenie - RR) Z pociągu metra w kontekście operacyjnym zebrano odczyty ciśnienia, temperatury, prądu silnika i zaworów wlotowych powietrza z jednostki wytwarzania powietrza sprężarki (APU). Ten zestaw danych ujawnia rzeczywiste wyzwania związane z konserwacją predykcyjną napotykane w branży. Można go wykorzystać do przewidywania awarii, wyjaśniania anomalii i innych zadań.
+
+Zbiór danych został zebrany w celu wsparcia rozwoju modeli konserwacji predykcyjnej, wykrywania anomalii i przewidywania pozostałej żywotności (RUL) sprężarek przy użyciu metod głębokiego uczenia maszynowego.
+
+Składa się on z wielowymiarowych danych szeregów czasowych uzyskanych z kilku czujników analogowych i cyfrowych zainstalowanych na sprężarce pociągu.
+
+Dane obejmują okres od lutego do sierpnia 2020 r. i obejmują 15 sygnałów, takich jak ciśnienia, prąd silnika, temperatura oleju i sygnały elektryczne zaworów wlotowych powietrza. Monitorowanie i rejestrowanie zdarzeń przemysłowych, takich jak zachowanie czasowe i zdarzenia usterek, uzyskano z zapisów generowanych przez czujniki.
+
+Dane były rejestrowane z częstotliwością 1 Hz przez wbudowane urządzenie. Schemat ideowy jednostki produkcyjnej sprężarki na rysunku 4 w załączonym dokumencie \[1\]. Również artykuł \[2\] zawiera szczegółowe badanie gromadzenia danych i specyfikacji różnych typów potencjalnych awarii w układzie sprężarki powietrza.
+
+Zbiór danych jest nieoznakowany, ale raporty o awariach dostarczone przez firmę są dostępne w poniższej tabeli. Pozwala to na ocenę skuteczności algorytmów wykrywania anomalii, przewidywania awarii i szacowania RUL.
+
+Czy istnieją zalecane podziały danych?
+
+Pierwszy miesiąc może być wykorzystany do szkolenia modelu, a pozostała część do testowania. Ten zestaw danych kwalifikuje się do przyrostowego szkolenia.
+
+Czy przeprowadzono wstępne przetwarzanie danych?
+
+Segmentacja danych, normalizacja, ekstrakcja cech.
+
+## Opis zbioru badawczego
+
+Do badania zostanie użyty zbiór `metro` pochodzący z witryny \[UCI\]( https://archive.ics.uci.edu/dataset/791/metropt+3+dataset).
+
+Zbiór danych składa się z 15169480 punktów danych zebranych z częstotliwością 1 Hz od lutego do sierpnia 2020 r. i jest opisany przez 15 cech z 7 czujników analogowych (1-7) i 8 cyfrowych (8-15).
+
+Zbiór zawiera 1516948 pomiarów opisanych(?) za pomocą 17 cech. Cechy te to:
+
+-   index - indeks danych (ID)
+
+-   timastamp - data godzina
+
+-   TP2 - miara ciśnienia na sprężarce (w barach)
+
+-   TP3 - pomiar ciśnienia generowanego na panelu pneumatycznym (w barach)
+
+-   H1 - miara ciśnienia generowanego z powodu spadku ciśnienia, gdy następuje wyładowanie filtra separatora cyklonowego (w barach)
+
+-   DV_pressure - pomiar spadku ciśnienia generowanego, gdy wieże wyładowują osuszacze powietrza; odczyt zerowy wskazuje, że sprężarka pracuje pod obciążeniem (w barach)
+
+-   Reservoirs - pomiar ciśnienia za zbiornikami, które powinno być zbliżone do ciśnienia panelu pneumatycznego (TP3) (w barach)
+
+-   Oil_temperature - pomiar temperatury oleju w sprężarce (w st. Celsiusza)
+
+-   Motor_current - miara prądu jednej fazy silnika trójfazowego; przedstawia wartości zbliżone do 0A - gdy jest wyłączony, 4A - gdy pracuje bez obciążenia, 7A - gdy pracuje pod obciążeniem i 9A - gdy rozpoczyna pracę (w Amperach)
+
+-   COMP - sygnał elektryczny zaworu wlotu powietrza sprężarki; jest aktywny, gdy nie ma wlotu powietrza, wskazując, że sprężarka jest wyłączona lub działa w stanie odciążenia
+
+-   DV_electric - sygnał elektryczny sterujący zaworem wylotowym sprężarki; jest aktywny, gdy sprężarka pracuje pod obciążeniem i nieaktywny, gdy sprężarka jest wyłączona lub pracuje w stanie odciążenia
+
+-   Towers - sygnał elektryczny, który określa wieżę odpowiedzialną za osuszanie powietrza i wieżę odpowiedzialną za odprowadzanie wilgoci usuniętej z powietrza; gdy nie jest aktywny, wskazuje, że działa wieża pierwsza; gdy jest aktywny, wskazuje, że działa wieża druga
+
+-   MPG - sygnał elektryczny odpowiedzialny za uruchomienie sprężarki pod obciążeniem poprzez aktywację zaworu wlotowego, gdy ciśnienie w jednostce wytwarzania powietrza (APU) spadnie poniżej 8,2 bara; aktywuje czujnik COMP, który zachowuje się tak samo jak czujnik MPG
+
+-   LPS - sygnał elektryczny, który wykrywa i aktywuje się, gdy ciśnienie spadnie poniżej 7 barów
+
+-   Pressure_switch - sygnał elektryczny, który wykrywa rozładowanie w wieżach suszenia powietrzem
+
+-   Oil_level - sygnał elektryczny, który wykrywa poziom oleju w sprężarce; jest aktywny, gdy poziom oleju jest poniżej oczekiwanych wartości
+
+-   Caudal_impulses - sygnał elektryczny zliczający impulsy generowane przez bezwzględną ilość powietrza przepływającego z APU do zbiorników
+
+Potencjalne targety: LPS, Pressure_switch, Oil_level (ewentualnie wszystkie kategoryczne). **A może temperaturę oleju??**
+
+Poniżej zaprezentowano pierwsze pięć obserwacji ze zbioru badawczego.
+
+```{r}
+head(dane, 5) |> kable() |> kable_styling()
+```
+
+Z opisu poszczególnych zmiennych oraz z powyższej tabelki, widzimy, że konieczne jest m. in. zamiana pewnych cech na zmienne kategoryczne. Dodatkowo, zmienna indeksująca (X) zostanie usunięta z tego zbioru. Zmienne: COMP, Towers, MPG, LPS, Pressure_switch, Oil_level oraz Caudal_impulses zostaną zamienione na kategoryczne. Zmienna timestamp zostanie także zamieniona na odpowiedni format datetime.
+
+```{r}
+dane <- dane[,-1]
+dane$COMP <- as.factor(dane$COMP) 
+dane$DV_eletric <- as.factor(dane$DV_eletric) 
+dane$Towers <- as.factor(dane$Towers) 
+dane$MPG <- as.factor(dane$MPG) 
+dane$LPS <- as.factor(dane$LPS) 
+dane$Pressure_switch <- as.factor(dane$Pressure_switch) 
+dane$Oil_level <- as.factor(dane$Oil_level) 
+dane$Caudal_impulses <- as.factor(dane$Caudal_impulses)
+dane$timestamp %<>%
+ as.POSIXct(tz = "Etc/GMT+1", format = "%Y-%m-%d %H:%M:%S")
+```
+
+Poniżej przedstawiono pierwszych 5 wierszy ramki danych po wymienionych wyżej transformacjach.
+
+```{r}
+head(dane, 5) |> kable() |> kable_styling()
+```
+
+Poniżej zaprezentowane są podstawowe statystyki opisowe dla zmiennych numerycznych:
+
+```{r}
+options(knitr.kable.NA=0)
+pods <- sub(".*:", "", summary(dane[,c("TP2", "TP3", "H1", "DV_pressure", "Reservoirs", "Oil_temperature", "Motor_current")]))
+rownames(pods) <- c("Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max.")
+pods %>% kable() %>% kable_styling(full_width = T, bootstrap_options  = "striped")
+```
+
+Na podstawie powyższych danych, widzimy, że najmniejsza wartość ciśnienia dla zmiennych TP2, TP3 oraz H1 oraz zmiana ciśnienia dla zmiennej DV_pressure jest ujemna. Przypomnijmy, że jest to ciśnienie w barach - 1 Bar odpowiada 100000 Pascalom (czy to dobrze??).
+
+Ponadto widzimy, że w badanym zbiorze nie występują braki danych.
+
+Dla zmiennych kategorycznych prezentujemy ich możliwe poziomy oraz liczby wystąpień każdego poziomu:
+
+```{r}
+options(knitr.kable.NA='') 
+summary(dane[,c("COMP", "DV_eletric", "Towers", "MPG", "LPS", "Pressure_switch", "Oil_level", "Caudal_impulses")]) %>% kable() %>% kable_styling(full_width = T, bootstrap_options  = "striped")
+```
+
+Na podsatwie powyższej tabeli, widzimy, że pomiędzy poziomami każdej ze zmiennych występuje znaczące niezbalansowanie. Warto będzie rozważyć metody up-/downsamplingu do tego zadania.
+
+#### Macierz korelacji
+
+```{r}
+mydata.cor = cor(dane[,c("TP2", "TP3", "H1", "DV_pressure", "Reservoirs", "Oil_temperature", "Motor_current")], use = "na.or.complete") 
+corrplot(mydata.cor, tl.cex = 0.6)
+cor(dane$Motor_current, dane$TP2) #0.70
+```
+
+```{r}
+#plot(TP2 ~ timestamp, data = dane, pch = 20, cex = .3)
+plot(Oil_temperature ~ timestamp, data = dane, type = 'l')
 ```
