@@ -21,7 +21,6 @@ library(tidyverse)
 library(dplyr)
 library(kableExtra)
 library(corrplot)
-library(keras)
 ```
 
 ```{r}
@@ -92,7 +91,7 @@ Zbiór zawiera 1516948 pomiarów opisanych(?) za pomocą 17 cech. Cechy te to:
 
 -   Caudal_impulses - sygnał elektryczny zliczający impulsy generowane przez bezwzględną ilość powietrza przepływającego z APU do zbiorników
 
-Potencjalne targety: LPS, Pressure_switch, Oil_level (ewentualnie wszystkie kategoryczne). **A może temperaturę oleju??**
+Potencjalne targety: LPS, Pressure_switch, Oil_level (ewentualnie wszystkie kategoryczne).
 
 Poniżej zaprezentowano pierwsze pięć obserwacji ze zbioru badawczego.
 
@@ -100,59 +99,15 @@ Poniżej zaprezentowano pierwsze pięć obserwacji ze zbioru badawczego.
 head(dane, 5) |> kable() |> kable_styling()
 ```
 
-Z opisu poszczególnych zmiennych oraz z powyższej tabelki, widzimy, że konieczne jest m. in. zamiana pewnych cech na zmienne kategoryczne. Dodatkowo, zmienna indeksująca (X) zostanie usunięta z tego zbioru. Zmienne: COMP, Towers, MPG, LPS, Pressure_switch, Oil_level oraz Caudal_impulses zostaną zamienione na kategoryczne. Zmienna timestamp zostanie także zamieniona na odpowiedni format datetime.
+Z opisu poszczególnych zmiennych oraz z powyższej tabelki, widzimy, że konieczne jest m. in. zamiana pewnych cech na zmienne kategoryczne. Dodatkowo, zmienna indeksująca (X) zostanie usunięta z tego zbioru. Zmienne: COMP, Towers, MPG, LPS, Pressure_switch, Oil_level oraz Caudal_impulses zostaną zamienione na kategoryczne.
 
 ```{r}
-dane <- dane[,-1]
-dane$COMP <- as.factor(dane$COMP) 
-dane$DV_eletric <- as.factor(dane$DV_eletric) 
-dane$Towers <- as.factor(dane$Towers) 
-dane$MPG <- as.factor(dane$MPG) 
-dane$LPS <- as.factor(dane$LPS) 
-dane$Pressure_switch <- as.factor(dane$Pressure_switch) 
-dane$Oil_level <- as.factor(dane$Oil_level) 
+dane$COMP <- as.factor(dane$COMP)
+dane$DV_eletric <- as.factor(dane$DV_eletric)
+dane$Towers <- as.factor(dane$Towers)
+dane$MPG <- as.factor(dane$MPG)
+dane$LPS <- as.factor(dane$LPS)
+dane$Pressure_switch <- as.factor(dane$Pressure_switch)
+dane$Oil_level <- as.factor(dane$Oil_level)
 dane$Caudal_impulses <- as.factor(dane$Caudal_impulses)
-dane$timestamp %<>%
- as.POSIXct(tz = "Etc/GMT+1", format = "%Y-%m-%d %H:%M:%S")
-```
-
-Poniżej przedstawiono pierwszych 5 wierszy ramki danych po wymienionych wyżej transformacjach.
-
-```{r}
-head(dane, 5) |> kable() |> kable_styling()
-```
-
-Poniżej zaprezentowane są podstawowe statystyki opisowe dla zmiennych numerycznych:
-
-```{r}
-options(knitr.kable.NA=0)
-pods <- sub(".*:", "", summary(dane[,c("TP2", "TP3", "H1", "DV_pressure", "Reservoirs", "Oil_temperature", "Motor_current")]))
-rownames(pods) <- c("Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max.")
-pods %>% kable() %>% kable_styling(full_width = T, bootstrap_options  = "striped")
-```
-
-Na podstawie powyższych danych, widzimy, że najmniejsza wartość ciśnienia dla zmiennych TP2, TP3 oraz H1 oraz zmiana ciśnienia dla zmiennej DV_pressure jest ujemna. Przypomnijmy, że jest to ciśnienie w barach - 1 Bar odpowiada 100000 Pascalom (czy to dobrze??).
-
-Ponadto widzimy, że w badanym zbiorze nie występują braki danych.
-
-Dla zmiennych kategorycznych prezentujemy ich możliwe poziomy oraz liczby wystąpień każdego poziomu:
-
-```{r}
-options(knitr.kable.NA='') 
-summary(dane[,c("COMP", "DV_eletric", "Towers", "MPG", "LPS", "Pressure_switch", "Oil_level", "Caudal_impulses")]) %>% kable() %>% kable_styling(full_width = T, bootstrap_options  = "striped")
-```
-
-Na podsatwie powyższej tabeli, widzimy, że pomiędzy poziomami każdej ze zmiennych występuje znaczące niezbalansowanie. Warto będzie rozważyć metody up-/downsamplingu do tego zadania.
-
-#### Macierz korelacji
-
-```{r}
-mydata.cor = cor(dane[,c("TP2", "TP3", "H1", "DV_pressure", "Reservoirs", "Oil_temperature", "Motor_current")], use = "na.or.complete") 
-corrplot(mydata.cor, tl.cex = 0.6)
-cor(dane$Motor_current, dane$TP2) #0.70
-```
-
-```{r}
-#plot(TP2 ~ timestamp, data = dane, pch = 20, cex = .3)
-plot(Oil_temperature ~ timestamp, data = dane, type = 'l')
 ```
